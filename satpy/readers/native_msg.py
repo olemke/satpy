@@ -149,7 +149,7 @@ class NativeMSGFileHandler(BaseFileHandler, SEVIRICalibrationHandler):
         self.header.update(recarray2dict(data))
 
         data15hd = self.header['15_DATA_HEADER']
-        sec15hd = self.header['15_SECONDARY_PRODUCT_HEADER']
+        #sec15hd = self.header['15_SECONDARY_PRODUCT_HEADER']
 
         # Set the list of available channels:
         self.available_channels = get_available_channels(self.header)
@@ -175,9 +175,12 @@ class NativeMSGFileHandler(BaseFileHandler, SEVIRICalibrationHandler):
                                              'h': 35785831.00,
                                              'ssp_longitude': ssp_lon}
 
-        west = int(sec15hd['WestColumnSelectedRectangle']['Value'])
-        east = int(sec15hd['EastColumnSelectedRectangle']['Value'])
-        ncols_hrv_hdr = int(sec15hd['NumberColumnsHRV']['Value'])
+        #west = int(sec15hd['WestColumnSelectedRectangle']['Value'])
+        #east = int(sec15hd['EastColumnSelectedRectangle']['Value'])
+        west = int(3712)
+        east = int(1)
+        #ncols_hrv_hdr = int(sec15hd['NumberColumnsHRV']['Value'])
+        ncols_hrv_hdr = 11136
         # We suspect the UMARF will pad out any ROI colums that
         # arent divisible by 4 so here we work out how many pixels have
         # been added to the column.
@@ -198,14 +201,17 @@ class NativeMSGFileHandler(BaseFileHandler, SEVIRICalibrationHandler):
             cols_hrv = int(np.ceil(5568 * 10.0 / 8))  # 6960
 
         # self.mda should represent the 16bit dimensions not 10bit
-        self.mda['number_of_lines'] = int(sec15hd['NumberLinesVISIR']['Value'])
+        # self.mda['number_of_lines'] = int(sec15hd['NumberLinesVISIR']['Value'])
+        self.mda['number_of_lines'] = 3712
         self.mda['number_of_columns'] = int(cols_visir / 1.25)
-        self.mda['hrv_number_of_lines'] = int(sec15hd["NumberLinesHRV"]['Value'])
+        # self.mda['hrv_number_of_lines'] = int(sec15hd["NumberLinesHRV"]['Value'])
+        self.mda['hrv_number_of_lines'] = 11136
         self.mda['hrv_number_of_columns'] = int(cols_hrv / 1.25)
 
         # Check the calculated row,column dimensions against the header information:
         ncols = self.mda['number_of_columns']
-        ncols_hdr = int(sec15hd['NumberLinesVISIR']['Value'])
+        # ncols_hdr = int(sec15hd['NumberLinesVISIR']['Value'])
+        ncols_hdr = 3712
 
         if ncols != ncols_hdr:
             logger.warning(
@@ -269,7 +275,7 @@ class NativeMSGFileHandler(BaseFileHandler, SEVIRICalibrationHandler):
     def get_area_extent(self, dsid):
 
         data15hd = self.header['15_DATA_HEADER']
-        sec15hd = self.header['15_SECONDARY_PRODUCT_HEADER']
+        # sec15hd = self.header['15_SECONDARY_PRODUCT_HEADER']
 
         if dsid.name != 'HRV':
 
@@ -286,10 +292,14 @@ class NativeMSGFileHandler(BaseFileHandler, SEVIRICalibrationHandler):
 
             center_point = 3712/2
 
-            north = int(sec15hd["NorthLineSelectedRectangle"]['Value'])
-            east = int(sec15hd['EastColumnSelectedRectangle']['Value'])
-            west = int(sec15hd['WestColumnSelectedRectangle']['Value'])
-            south = int(sec15hd["SouthLineSelectedRectangle"]['Value'])
+            # north = int(sec15hd["NorthLineSelectedRectangle"]['Value'])
+            # east = int(sec15hd['EastColumnSelectedRectangle']['Value'])
+            # west = int(sec15hd['WestColumnSelectedRectangle']['Value'])
+            # south = int(sec15hd["SouthLineSelectedRectangle"]['Value'])
+            north = 1
+            east = 1
+            west = 3712
+            south = 3712
 
             column_step = data15hd['ImageDescription'][
                 "ReferenceGridVIS_IR"]["ColumnDirGridStep"] * 1000.0
@@ -436,8 +446,9 @@ class NativeMSGFileHandler(BaseFileHandler, SEVIRICalibrationHandler):
 def get_available_channels(header):
     """Get the available channels from the header information"""
 
-    chlist_str = header['15_SECONDARY_PRODUCT_HEADER'][
-        'SelectedBandIDs']['Value']
+    # chlist_str = header['15_SECONDARY_PRODUCT_HEADER'][
+    #     'SelectedBandIDs']['Value']
+    chlist_str = 'X' * 12
     retv = {}
 
     for idx, char in zip(range(12), chlist_str):

@@ -88,9 +88,9 @@ class Msg15NativeHeaderRecord(object):
 
         # 450400 bytes
         record = [
-            ('15_MAIN_PRODUCT_HEADER', L15MainProductHeaderRecord().get()),
-            ('15_SECONDARY_PRODUCT_HEADER',
-             L15SecondaryProductHeaderRecord().get()),
+            # ('15_MAIN_PRODUCT_HEADER', L15MainProductHeaderRecord().get()),
+            # ('15_SECONDARY_PRODUCT_HEADER',
+            #  L15SecondaryProductHeaderRecord().get()),
             ('GP_PK_HEADER', GSDTRecords.gp_pk_header),
             ('GP_PK_SH1', GSDTRecords.gp_pk_sh1),
             ('15_DATA_HEADER', L15DataHeaderRecord().get())
