@@ -32,25 +32,23 @@ References:
     https://www.eumetsat.int/website/wcm/idc/idcplg?IdcService=GET_FILE&dDocName=PDF_TEN_05105_MSG_IMG_DATA&RevisionSelectionMethod=LatestReleased&Rendition=Web
 """
 
-import os
 import logging
+import os
 from datetime import datetime
-import numpy as np
 
-import xarray as xr
 import dask.array as da
-
-from satpy import CHUNK_SIZE
+import numpy as np
+import xarray as xr
 from pyresample import geometry
 
-from satpy.readers.file_handlers import BaseFileHandler
+from satpy import CHUNK_SIZE
 from satpy.readers.eum_base import recarray2dict
+from satpy.readers.file_handlers import BaseFileHandler
 from satpy.readers.msg_base import (SEVIRICalibrationHandler,
                                     CHANNEL_NAMES, CALIB, SATNUM,
                                     dec10216)
 from satpy.readers.native_msg_hdr import (GSDTRecords, native_header,
-                                          native_trailer)
-
+                                          native_noumarf_header, native_trailer)
 
 logger = logging.getLogger('native_msg')
 
@@ -65,7 +63,11 @@ class NativeMSGFileHandler(BaseFileHandler, SEVIRICalibrationHandler):
                                                    filename_info,
                                                    filetype_info)
         self.filename = filename
+        self.umarf_header = self.filename[-4:] == '.nat'
         self.platform_name = None
+
+        self.native_header = (
+            native_header if self.umarf_header else native_noumarf_header)
 
         # The available channels are only known after the header
         # has been read, after that we know what the indices are for each channel
@@ -134,7 +136,7 @@ class NativeMSGFileHandler(BaseFileHandler, SEVIRICalibrationHandler):
         with open(self.filename) as fp:
 
             data_dtype = self._get_data_dtype()
-            hdr_size = native_header.itemsize
+            hdr_size = self.native_header.itemsize
 
             return np.memmap(fp, dtype=data_dtype,
                              shape=(self.mda['number_of_lines'],),
@@ -144,12 +146,13 @@ class NativeMSGFileHandler(BaseFileHandler, SEVIRICalibrationHandler):
         """Read the header info"""
 
         data = np.fromfile(self.filename,
-                           dtype=native_header, count=1)
+                           dtype=self.native_header, count=1)
 
         self.header.update(recarray2dict(data))
 
         data15hd = self.header['15_DATA_HEADER']
-        #sec15hd = self.header['15_SECONDARY_PRODUCT_HEADER']
+        sec15hd = self.header[
+            '15_SECONDARY_PRODUCT_HEADER'] if self.umarf_header else None
 
         # Set the list of available channels:
         self.available_channels = get_available_channels(self.header)
@@ -175,12 +178,14 @@ class NativeMSGFileHandler(BaseFileHandler, SEVIRICalibrationHandler):
                                              'h': 35785831.00,
                                              'ssp_longitude': ssp_lon}
 
-        #west = int(sec15hd['WestColumnSelectedRectangle']['Value'])
-        #east = int(sec15hd['EastColumnSelectedRectangle']['Value'])
-        west = int(3712)
-        east = int(1)
-        #ncols_hrv_hdr = int(sec15hd['NumberColumnsHRV']['Value'])
-        ncols_hrv_hdr = 11136
+        if sec15hd:
+            west = int(sec15hd['WestColumnSelectedRectangle']['Value'])
+            east = int(sec15hd['EastColumnSelectedRectangle']['Value'])
+            ncols_hrv_hdr = int(sec15hd['NumberColumnsHRV']['Value'])
+        else:
+            west = int(3712)
+            east = int(1)
+            ncols_hrv_hdr = 11136
         # We suspect the UMARF will pad out any ROI colums that
         # arent divisible by 4 so here we work out how many pixels have
         # been added to the column.
@@ -201,17 +206,17 @@ class NativeMSGFileHandler(BaseFileHandler, SEVIRICalibrationHandler):
             cols_hrv = int(np.ceil(5568 * 10.0 / 8))  # 6960
 
         # self.mda should represent the 16bit dimensions not 10bit
-        # self.mda['number_of_lines'] = int(sec15hd['NumberLinesVISIR']['Value'])
-        self.mda['number_of_lines'] = 3712
+        self.mda['number_of_lines'] = int(
+            sec15hd['NumberLinesVISIR']['Value']) if sec15hd else 3712
         self.mda['number_of_columns'] = int(cols_visir / 1.25)
-        # self.mda['hrv_number_of_lines'] = int(sec15hd["NumberLinesHRV"]['Value'])
-        self.mda['hrv_number_of_lines'] = 11136
+        self.mda['hrv_number_of_lines'] = int(
+            sec15hd["NumberLinesHRV"]['Value']) if sec15hd else 11136
         self.mda['hrv_number_of_columns'] = int(cols_hrv / 1.25)
 
         # Check the calculated row,column dimensions against the header information:
         ncols = self.mda['number_of_columns']
-        # ncols_hdr = int(sec15hd['NumberLinesVISIR']['Value'])
-        ncols_hdr = 3712
+        ncols_hdr = int(
+            sec15hd['NumberLinesVISIR']['Value']) if sec15hd else 3712
 
         if ncols != ncols_hdr:
             logger.warning(
@@ -229,7 +234,7 @@ class NativeMSGFileHandler(BaseFileHandler, SEVIRICalibrationHandler):
 
     def _read_trailer(self):
 
-        hdr_size = native_header.itemsize
+        hdr_size = self.native_header.itemsize
         data_size = (self._get_data_dtype().itemsize *
                      self.mda['number_of_lines'])
 
@@ -446,9 +451,11 @@ class NativeMSGFileHandler(BaseFileHandler, SEVIRICalibrationHandler):
 def get_available_channels(header):
     """Get the available channels from the header information"""
 
-    # chlist_str = header['15_SECONDARY_PRODUCT_HEADER'][
-    #     'SelectedBandIDs']['Value']
-    chlist_str = 'X' * 12
+    if '15_SECONDARY_PRODUCT_HEADER' in header:
+        chlist_str = header['15_SECONDARY_PRODUCT_HEADER'][
+            'SelectedBandIDs']['Value']
+    else:
+        chlist_str = 'X' * 12
     retv = {}
 
     for idx, char in zip(range(12), chlist_str):

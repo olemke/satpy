@@ -79,6 +79,22 @@ class GSDTRecords(object):
     ]
 
 
+class Msg15NativeNoUmarfHeaderRecord(object):
+    """
+    SEVIRI Level 1.5 header for native-format
+    """
+
+    def get(self):
+
+        record = [
+            ('GP_PK_HEADER', GSDTRecords.gp_pk_header),
+            ('GP_PK_SH1', GSDTRecords.gp_pk_sh1),
+            ('15_DATA_HEADER', L15DataHeaderRecord().get())
+        ]
+
+        return np.dtype(record).newbyteorder('>')
+
+
 class Msg15NativeHeaderRecord(object):
     """
     SEVIRI Level 1.5 header for native-format
@@ -88,9 +104,9 @@ class Msg15NativeHeaderRecord(object):
 
         # 450400 bytes
         record = [
-            # ('15_MAIN_PRODUCT_HEADER', L15MainProductHeaderRecord().get()),
-            # ('15_SECONDARY_PRODUCT_HEADER',
-            #  L15SecondaryProductHeaderRecord().get()),
+            ('15_MAIN_PRODUCT_HEADER', L15MainProductHeaderRecord().get()),
+            ('15_SECONDARY_PRODUCT_HEADER',
+             L15SecondaryProductHeaderRecord().get()),
             ('GP_PK_HEADER', GSDTRecords.gp_pk_header),
             ('GP_PK_SH1', GSDTRecords.gp_pk_sh1),
             ('15_DATA_HEADER', L15DataHeaderRecord().get())
@@ -1030,4 +1046,5 @@ hrit_prologue = HritPrologue().get()
 impf_configuration = np.dtype(
     L15DataHeaderRecord().impf_configuration).newbyteorder('>')
 native_header = Msg15NativeHeaderRecord().get()
+native_noumarf_header = Msg15NativeNoUmarfHeaderRecord().get()
 native_trailer = Msg15NativeTrailerRecord().get()
